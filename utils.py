@@ -12,7 +12,7 @@ def drawdic(image, dic, hight=30):
         draw.text(xy=(10, idx * hight), text=l, font=font, fill='#000000')
     return image
 
-def  imread(path):
+def imread(path):
     img = scipy.misc.imread(path).astype(np.float)
     if len(img.shape) == 2:
         # grayscale

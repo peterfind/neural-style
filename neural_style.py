@@ -12,6 +12,8 @@ from argparse import ArgumentParser
 
 from PIL import Image
 
+import utils
+
 # default arguments
 CONTENT_WEIGHT = 5e0
 CONTENT_WEIGHT_BLEND = 1
@@ -24,7 +26,7 @@ BETA2 = 0.999
 EPSILON = 1e-08
 STYLE_SCALE = 1.0
 ITERATIONS = 1000
-VGG_PATH = 'imagenet-vgg-verydeep-19.mat'
+VGG_PATH = '../vgg-models/imagenet-vgg-verydeep-19.mat'
 POOLING = 'max'
 
 def build_parser():
@@ -54,10 +56,7 @@ def build_parser():
     parser.add_argument('--width', type=int,
             dest='width', help='output width',
             metavar='WIDTH')
-    parser.add_argument('--style-scales', type=float,
-            dest='style_scales',
-            nargs='+', help='one or more style scales',
-            metavar='STYLE_SCALE')
+    parser.add_argument('--style_width', type=float, nargs='+')
     parser.add_argument('--network',
             dest='network', help='path to network parameters (default %(default)s)',
             metavar='VGG_PATH', default=VGG_PATH)
@@ -114,8 +113,8 @@ def main():
     if not os.path.isfile(options.network):
         parser.error("Network %s does not exist. (Did you forget to download it?)" % options.network)
 
-    content_image = imread(options.content)
-    style_images = [imread(style) for style in options.styles]
+    content_image = utils.imread(options.content)
+    style_images = [utils.imread(style) for style in options.styles]
 
     width = options.width
     if width is not None:
@@ -123,12 +122,10 @@ def main():
                 content_image.shape[1] * width)), width)
         content_image = scipy.misc.imresize(content_image, new_shape)
     target_shape = content_image.shape
-    for i in range(len(style_images)):
-        style_scale = STYLE_SCALE
-        if options.style_scales is not None:
-            style_scale = options.style_scales[i]
-        style_images[i] = scipy.misc.imresize(style_images[i], style_scale *
-                target_shape[1] / style_images[i].shape[1])
+    for i in range(len(style_images)):  # resize style image
+        if options.style_width is not None:
+            style_images[i] = scipy.misc.imresize(style_images[i],
+                (int(1.0 * style_images[i].shape[0] * options.style_width[i] / style_images[i].shape[1]), int(options.style_width[i])))
 
     style_blend_weights = options.style_blend_weights
     if style_blend_weights is None:
@@ -141,7 +138,7 @@ def main():
 
     initial = options.initial
     if initial is not None:
-        initial = scipy.misc.imresize(imread(initial), content_image.shape[:2])
+        initial = scipy.misc.imresize(utils.imread(initial), content_image.shape[:2])
         # Initial guess is specified, but not noiseblend - no noise should be blended
         if options.initial_noiseblend is None:
             options.initial_noiseblend = 0.0
@@ -160,7 +157,7 @@ def main():
     if os.path.isfile(options.output) and not options.overwrite:
         raise IOError("%s already exists, will not replace it without the '--overwrite' flag" % options.output)
     try:
-        imsave(options.output, np.zeros((500, 500, 3)))
+        utils.imsave(options.output, np.zeros((500, 500, 3)))
     except:
         raise IOError('%s is not writable or does not have a valid file extension for an image file' % options.output)
 
@@ -188,29 +185,17 @@ def main():
     ):
         output_file = None
         combined_rgb = image
-        if iteration is not None:
+        if iteration is not None:  # iteration when optimize
             if options.checkpoint_output:
                 output_file = options.checkpoint_output % iteration
-        else:
+                utils.imsave(output_file, combined_rgb)
+        else:  # iteration of the last step
             output_file = options.output
-        if output_file:
-            imsave(output_file, combined_rgb)
-
-
-def imread(path):
-    img = scipy.misc.imread(path).astype(np.float)
-    if len(img.shape) == 2:
-        # grayscale
-        img = np.dstack((img,img,img))
-    elif img.shape[2] == 4:
-        # PNG with alpha channel
-        img = img[:,:,:3]
-    return img
-
-
-def imsave(path, img):
-    img = np.clip(img, 0, 255).astype(np.uint8)
-    Image.fromarray(img).save(path, quality=95)
+            opt_image = Image.new('RGB', (image.shape[1], image.shape[0]), (200, 200, 200))
+            opt_image = utils.drawdic(opt_image, vars(options), hight=int(image.shape[0] / len(vars(options)) - 1))
+            rgb_with_message = np.append(combined_rgb, np.array(opt_image), axis=1)
+            utils.imsave(output_file, combined_rgb)
+            utils.imsave(os.path.join(os.path.dirname(output_file), 'mesg_'+os.path.basename(output_file)), rgb_with_message)
 
 if __name__ == '__main__':
     main()

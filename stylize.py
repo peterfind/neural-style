@@ -148,7 +148,7 @@ def stylize(network, initial, initial_noiseblend, content, styles, preserve_colo
             start = time.time()
             for i in range(iterations):
                 iteration_start = time.time()
-                if i > 0:
+                if i % 100 == 0 and i != 0:
                     elapsed = time.time() - start
                     # take average of last couple steps to get time per iteration
                     remaining = np.mean(iteration_times[-10:]) * (iterations - i)
@@ -158,8 +158,8 @@ def stylize(network, initial, initial_noiseblend, content, styles, preserve_colo
                         hms(elapsed),
                         hms(remaining)
                     ))
-                else:
-                    stderr.write('Iteration %4d/%4d\n' % (i + 1, iterations))
+                # else:
+                #     stderr.write('Iteration %4d/%4d\n' % (i + 1, iterations))
                 train_step.run()
 
                 last_step = (i == iterations - 1)
