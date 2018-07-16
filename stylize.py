@@ -9,9 +9,11 @@ from sys import stderr
 import time
 
 from PIL import Image
+from collections import OrderedDict
 
 CONTENT_LAYERS = ('relu4_2', 'relu5_2')
 STYLE_LAYERS = ('relu1_1', 'relu2_1', 'relu3_1', 'relu4_1', 'relu5_1')
+# shape           64*64     128*128    256*256    512*512    512*512
 
 try:
     reduce
@@ -86,6 +88,10 @@ def stylize(network, initial, initial_noiseblend, content, styles, preserve_colo
             initial = initial.astype('float32')
             noise = np.random.normal(size=shape, scale=np.std(content) * 0.1)
             initial = (initial) * initial_content_noise_coeff + (tf.random_normal(shape) * 0.256) * (1.0 - initial_content_noise_coeff)
+        with tf.Session() as sess:
+            np_initial = initial.eval()
+            luyue1 = np.max(np_initial)
+            luyue2 = np.min(np_initial)
         image = tf.Variable(initial)
         net = vgg.net_preloaded(vgg_weights, image, pooling)
 
@@ -140,6 +146,7 @@ def stylize(network, initial, initial_noiseblend, content, styles, preserve_colo
         best_loss = float('inf')
         best = None
         with tf.Session() as sess:
+
             sess.run(tf.global_variables_initializer())
             stderr.write('Optimization started...\n')
             if (print_iterations and print_iterations != 0):
@@ -148,7 +155,7 @@ def stylize(network, initial, initial_noiseblend, content, styles, preserve_colo
             start = time.time()
             for i in range(iterations):
                 iteration_start = time.time()
-                if i % 100 == 0 and i != 0:
+                if i % 50 == 0 and i != 0:
                     elapsed = time.time() - start
                     # take average of last couple steps to get time per iteration
                     remaining = np.mean(iteration_times[-10:]) * (iterations - i)
@@ -163,8 +170,15 @@ def stylize(network, initial, initial_noiseblend, content, styles, preserve_colo
                 train_step.run()
 
                 last_step = (i == iterations - 1)
+                loss_dict = {}
                 if last_step or (print_iterations and i % print_iterations == 0):
                     print_progress()
+                    loss_dict = OrderedDict()
+                    loss_dict['content_loss'] = content_loss.eval()
+                    loss_dict['style_loss'] = style_loss.eval()
+                    loss_dict['tv_loss'] = tv_loss.eval()
+                    loss_dict['total_loss'] = loss.eval()
+
 
                 if (checkpoint_iterations and i % checkpoint_iterations == 0) or last_step:
                     this_loss = loss.eval()
@@ -208,7 +222,8 @@ def stylize(network, initial, initial_noiseblend, content, styles, preserve_colo
 
                     yield (
                         (None if last_step else i),
-                        img_out
+                        img_out,
+                        loss_dict
                     )
 
                 iteration_end = time.time()

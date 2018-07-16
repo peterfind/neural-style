@@ -1,7 +1,8 @@
 # Copyright (c) 2015-2018 Anish Athalye. Released under GPLv3.
 
 import os
-
+os.environ['TF_CPP_MIN_LOG_LEVEL']='2'
+os.environ['CUDA_VISIBLE_DEVICES']='1'
 import numpy as np
 import scipy.misc
 
@@ -13,8 +14,13 @@ from argparse import ArgumentParser
 from PIL import Image
 
 import utils
+from collections import OrderedDict
 
 # default arguments
+CONTENT = './image/content/greatwall.jpg'
+STYLE = ['./image/style/2-leonid.png']
+OUTPUT = './image/output/output_test.png'
+CHECKPOINT_OUTPUT = './image/mid_image/foo%s.jpg'
 CONTENT_WEIGHT = 5e0
 CONTENT_WEIGHT_BLEND = 1
 STYLE_WEIGHT = 5e2
@@ -28,19 +34,18 @@ STYLE_SCALE = 1.0
 ITERATIONS = 1000
 VGG_PATH = '../vgg-models/imagenet-vgg-verydeep-19.mat'
 POOLING = 'max'
-
 def build_parser():
     parser = ArgumentParser()
     parser.add_argument('--content',
             dest='content', help='content image',
-            metavar='CONTENT', required=True)
+            metavar='CONTENT', default=CONTENT)
     parser.add_argument('--styles',
             dest='styles',
             nargs='+', help='one or more style images',
-            metavar='STYLE', required=True)
+            metavar='STYLE', default=STYLE)
     parser.add_argument('--output',
             dest='output', help='output path',
-            metavar='OUTPUT', required=True)
+            metavar='OUTPUT', default=OUTPUT)
     parser.add_argument('--iterations', type=int,
             dest='iterations', help='iterations (default %(default)s)',
             metavar='ITERATIONS', default=ITERATIONS)
@@ -49,13 +54,14 @@ def build_parser():
             metavar='PRINT_ITERATIONS')
     parser.add_argument('--checkpoint-output',
             dest='checkpoint_output', help='checkpoint output format, e.g. output%%s.jpg',
-            metavar='OUTPUT')
+            metavar='OUTPUT', default=CHECKPOINT_OUTPUT)
     parser.add_argument('--checkpoint-iterations', type=int,
             dest='checkpoint_iterations', help='checkpoint frequency',
             metavar='CHECKPOINT_ITERATIONS')
     parser.add_argument('--width', type=int,
             dest='width', help='output width',
             metavar='WIDTH')
+    parser.add_argument('--square_shape', action='store_true')
     parser.add_argument('--style_width', type=float, nargs='+')
     parser.add_argument('--network',
             dest='network', help='path to network parameters (default %(default)s)',
@@ -73,7 +79,7 @@ def build_parser():
             dest='style_layer_weight_exp', help='style layer weight exponentional increase - weight(layer<n+1>) = weight_exp*weight(layer<n>) (default %(default)s)',
             metavar='STYLE_LAYER_WEIGHT_EXP', default=STYLE_LAYER_WEIGHT_EXP)
     parser.add_argument('--style-blend-weights', type=float,
-            dest='style_blend_weights', help='style blending weights',
+            dest='style_blend_weights', help='style blending weights, weights between style images',
             nargs='+', metavar='STYLE_BLEND_WEIGHT')
     parser.add_argument('--tv-weight', type=float,
             dest='tv_weight', help='total variation regularization weight (default %(default)s)',
@@ -109,6 +115,7 @@ def build_parser():
 def main():
     parser = build_parser()
     options = parser.parse_args()
+    utils.printoptions(options)
 
     if not os.path.isfile(options.network):
         parser.error("Network %s does not exist. (Did you forget to download it?)" % options.network)
@@ -117,9 +124,12 @@ def main():
     style_images = [utils.imread(style) for style in options.styles]
 
     width = options.width
-    if width is not None:
-        new_shape = (int(math.floor(float(content_image.shape[0]) /
-                content_image.shape[1] * width)), width)
+    if width is not None:  # resize content image
+        if not options.square_shape:
+            new_shape = (int(math.floor(float(content_image.shape[0]) /
+                    content_image.shape[1] * width)), width)
+        else:
+            new_shape = (width, width)
         content_image = scipy.misc.imresize(content_image, new_shape)
     target_shape = content_image.shape
     for i in range(len(style_images)):  # resize style image
@@ -161,7 +171,7 @@ def main():
     except:
         raise IOError('%s is not writable or does not have a valid file extension for an image file' % options.output)
 
-    for iteration, image in stylize(
+    for iteration, image, loss_dict in stylize(
         network=options.network,
         initial=initial,
         initial_noiseblend=options.initial_noiseblend,
@@ -192,10 +202,15 @@ def main():
         else:  # iteration of the last step
             output_file = options.output
             opt_image = Image.new('RGB', (image.shape[1], image.shape[0]), (200, 200, 200))
-            opt_image = utils.drawdic(opt_image, vars(options), hight=int(image.shape[0] / len(vars(options)) - 1))
+            opt_image = utils.drawdic(opt_image, OrderedDict(vars(options).items()+loss_dict.items()), hight=int((image.shape[0] - 5) / (len(vars(options)) + len(loss_dict))))
             rgb_with_message = np.append(combined_rgb, np.array(opt_image), axis=1)
             utils.imsave(output_file, combined_rgb)
             utils.imsave(os.path.join(os.path.dirname(output_file), 'mesg_'+os.path.basename(output_file)), rgb_with_message)
 
 if __name__ == '__main__':
+    print('\033[1;31;40m')
+    print('Run neural_style.py')
+    print('\033[0m')
+    print('CUDA_VISIBLE_DEVICES = %s' %os.environ['CUDA_VISIBLE_DEVICES'])
     main()
+    print('\n')

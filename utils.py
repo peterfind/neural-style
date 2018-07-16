@@ -1,3 +1,4 @@
+import os
 from PIL import Image, ImageFont, ImageDraw
 import scipy.misc
 import numpy as np
@@ -28,10 +29,8 @@ def imsave(path, img):
     Image.fromarray(img).save(path, quality=95)
 
 def printoptions(opt):
-    print '#-----------options-----------#'
     for name, value in vars(opt).items():
         print '%s = %s' %(name, value)
-    print '#-----------------------------#'
 
 def mkdir(path):
     if not os.path.exists(path):
