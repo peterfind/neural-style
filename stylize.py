@@ -56,7 +56,9 @@ def stylize(network, initial, initial_noiseblend, content, styles, preserve_colo
 
     # compute content features in feedforward mode
     g = tf.Graph()
-    with g.as_default(), g.device('/cpu:0'), tf.Session() as sess:
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
+    with g.as_default(), g.device('/cpu:0'), tf.Session(config=config) as sess:
         image = tf.placeholder('float', shape=shape)
         net = vgg.net_preloaded(vgg_weights, image, pooling)
         content_pre = np.array([vgg.preprocess(content, vgg_mean_pixel)])
@@ -66,7 +68,7 @@ def stylize(network, initial, initial_noiseblend, content, styles, preserve_colo
     # compute style features in feedforward mode
     for i in range(len(styles)):
         g = tf.Graph()
-        with g.as_default(), g.device('/cpu:0'), tf.Session() as sess:
+        with g.as_default(), g.device('/cpu:0'), tf.Session(config=config) as sess:
             image = tf.placeholder('float', shape=style_shapes[i])
             net = vgg.net_preloaded(vgg_weights, image, pooling)
             style_pre = np.array([vgg.preprocess(styles[i], vgg_mean_pixel)])
@@ -88,7 +90,7 @@ def stylize(network, initial, initial_noiseblend, content, styles, preserve_colo
             initial = initial.astype('float32')
             noise = np.random.normal(size=shape, scale=np.std(content) * 0.1)
             initial = (initial) * initial_content_noise_coeff + (tf.random_normal(shape) * 0.256) * (1.0 - initial_content_noise_coeff)
-        with tf.Session() as sess:
+        with tf.Session(config=config) as sess:
             np_initial = initial.eval()
             luyue1 = np.max(np_initial)
             luyue2 = np.min(np_initial)
@@ -145,7 +147,7 @@ def stylize(network, initial, initial_noiseblend, content, styles, preserve_colo
         # optimization
         best_loss = float('inf')
         best = None
-        with tf.Session() as sess:
+        with tf.Session(config=config) as sess:
 
             sess.run(tf.global_variables_initializer())
             stderr.write('Optimization started...\n')

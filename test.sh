@@ -7,7 +7,7 @@ python neural_style.py \
 --styles ${style_path}${2} \
 --output ${output_path}"${1}_${2}_.png" \
 --checkpoint-output ./image/mid_image/foo%s.jpg \
---width 1024 \
+--width 512 \
 --square_shape \
 --style_width 512 \
 --iterations 500 \
@@ -17,7 +17,6 @@ python neural_style.py \
 --style-weight 1e1 \
 --overwrite
 }
-#`ls ${style_path}`
 # 默认参数
 #CONTENT = './image/content/greatwall.jpg'
 #STYLE = ['./image/style/2-leonid.png']
@@ -37,23 +36,6 @@ python neural_style.py \
 
 content_path='./image/special_content/'
 style_path='./image/style/'
-output_path='./image/output_archive/leonid/'
-content_list=`ls ${content_path}`
-style_list=(2-leonid.png)
-for content in ${content_list}
-do
-    for style in ${style_list}
-    do
-        echo ${content_list[*]}
-        echo ${style_list[*]}
-        echo ${content} ${style}
-        testfun ${content} ${style}
-    done
-done
+output_path='./image/tmp_ouput/'
 
-python img_grid.py \
---contents_path ${content_path} \
---styles_path ${style_path} \
---output_path ${output_path} \
---content_list ${content_list[*]} \
---style_list ${style_list[*]}
+testfun street.jpeg 2-leonid.png
