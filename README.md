@@ -1,3 +1,10 @@
+# Main Modification
+- Try different content/style image pairs.
+- Grid the result images.
+- Try hyperparameters and take notes.
+
+
+
 # neural-style
 
 An implementation of [neural style][paper] in TensorFlow.
